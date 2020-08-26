@@ -1,0 +1,192 @@
+body {
+  font-family: Monospace;
+  background-color: black;
+  margin: 0px;
+  overflow: hidden;
+  cursor: grab;
+}
+
+html {
+  position: fixed;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow-y: hidden;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+a,
+a:hover,
+a:link,
+a:visited,
+a:active {
+  color: #fff;
+}
+
+.button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  background: url("baseline-volume_up-24px.svg") no-repeat center center;
+  border: none;
+
+  z-index: 200;
+
+  text-indent: -9999px;
+  overflow: hidden;
+}
+
+.muted .muteButton {
+  background-image: url("mute.svg");
+}
+
+body .infoButton {
+  right: inherit;
+  left: 20px;
+  background-image: url("./info.svg");
+  height: 24px;
+  width: 24px;
+  bottom: 20px;
+}
+
+.overlay {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+
+  z-index: 100;
+
+  transition: all 0.3s ease-in;
+  cursor: default;
+}
+
+.overlay.closed {
+  opacity: 0;
+  background: rgba(0, 0, 0, 0);
+  /*transform: scaleX(0) scaleY(0) translateY(120vh);*/
+}
+
+.dialog {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -150px 0 0 -120px;
+  width: 240px;
+  height: 300px;
+}
+
+.dialog button {
+  margin-top: 25px;
+  border: solid 1px #fff;
+  width: 100px;
+
+  background: #000
+    url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=)
+    no-repeat 0 0;
+  background-size: 100% 100%;
+  animation: loadingbar 140s;
+
+  transition: background-size 0.3s ease-in;
+
+  color: #000;
+  padding: 7px 20px;
+  /* text-transform: uppercase; */
+  font-variant: small-caps;
+}
+
+.loading .dialog button {
+  color: #999;
+  animation-duration: 140s;
+}
+
+.loaded .dialog button {
+  animation: none;
+  background-size: 100% 100%;
+}
+
+.loaded .dialog button:hover,
+.loaded .dialog button:active {
+  background: #000;
+  color: #fff;
+}
+
+@keyframes loadingbar {
+  0% {
+    background-size: 0% 100%;
+  }
+
+  3% {
+    background-size: 30% 100%;
+  }
+
+  15% {
+    background-size: 50% 100%;
+  }
+
+  50% {
+    background-size: 80% 100%;
+  }
+
+  90% {
+    background-size: 95% 100%;
+  }
+
+  100% {
+    background-size: 97% 100%;
+  }
+}
+
+/* Cross-fade */
+.crossfade {
+  position: relative;
+}
+
+.about .crossfade div {
+  /*transition: all 0.3s ease-in-out;*/
+  animation-name: crossFade;
+  animation-duration: 0.3s;
+  animation-timing-function: ease-in-out;
+}
+
+.info {
+  opacity: 0;
+}
+
+.welcome {
+  top: 0;
+  position: absolute;
+
+  animation-fill-mode: forwards;
+}
+
+html .about .info {
+  z-index: 10;
+  animation-direction: reverse;
+  animation-fill-mode: forwards;
+}
+
+@keyframes crossFade {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  99% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}

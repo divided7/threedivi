@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>threedivi</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+   <link rel="stylesheet" href="style.css">
+  </head>
+  <body class="loading">
+    <div id="container"></div>
+
+    <button id="muteButton" class="muteButton button">Mute volume</button>
+
+    <div id="intro" class="overlay">
+      <div class="dialog">
+        <h2>ThreeDivi</h2>
+
+        <div class="crossfade">
+          <div class="welcome">
+            <p>An abstract threejs and tonejs project</p>
+            <p>Unmute your speakers</p>
+          </div>
+
+          <div class="info">
+            <p>Coded by <a href="https://divii.in">Divyansh Singh</a></p>
+            <p>
+              3d models from Google Poly & free music from random websites,
+              synthesizer made with tonejs
+            </p>
+          </div>
+        </div>
+
+        <button class="start" id="startButton">Loading...</button>
+      </div>
+
+      <button id="infoButton" class="infoButton button">About</button>
+    </div>
+
+    <script>
+      var DEBUG = window.location.href.indexOf("debug=true") > 0;
+      var debugPrint = DEBUG
+        ? function () {
+            console.log.apply(console, arguments);
+          }
+        : function () {};
+
+      function glowMaterial(material) {
+        material.__currentHex = material.emissive.getHex();
+        material.emissive.setHex(material.color.getHex());
+      }
+
+      function unglowMaterial(material) {
+        if (typeof material.__currentHex != "undefined") {
+          material.emissive.setHex(material.__currentHex);
+        }
+      }
+    </script>
+
+    <script src="js/three.js"></script>
+    <script src="js/A11yHelper.js"></script>
+
+    <script src="js/loaders/MTLLoader.js"></script>
+    <script src="js/loaders/OBJLoader.js"></script>
+
+    <script src="js/controls/OrbitControls.js"></script>
+
+    <script src="js/libs/dat.gui.min.js"></script>
+    <script src="js/libs/stats.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/16.3.5/Tween.min.js"></script>
+
+    <script src="js/objects/Water.js"></script>
+    <script src="js/objects/Sky.js"></script>
+
+    <script src="js/WebGL.js"></script>
+
+    <script type="text/javascript" src="threedivi/Tone.min.js"></script>
+    <script
+      type="text/javascript"
+      src="threedivi/StartAudioContext.js"
+    ></script>
+
+    <script src="threedivi/LetterDistributions.js"></script>
+    <script src="threedivi/synth.js"></script>
+    <script src="threedivi/palettes.js"></script>
+    <script src="threedivi/main.js"></script>
+    <script src="threedivi/loops.js"></script>
+
+    <script>
+      // UI
+      var muteButton = document.getElementById("muteButton");
+      muteButton.addEventListener("click", function (ev) {
+        var isMuted = (Tone.Master.mute = !Tone.Master.mute);
+        if (isMuted) {
+          document.body.className += " muted";
+        } else {
+          document.body.className = document.body.className.replace(
+            " muted",
+            ""
+          );
+        }
+      });
+
+      var infoButton = document.getElementById("infoButton");
+      infoButton.addEventListener("click", function (ev) {
+        document.body.className += " about";
+      });
+
+      var isIntroClosed = false,
+        onStartedListeners = [],
+        addOnStartedListener = function (listener) {
+          onStartedListeners.push(listener);
+        },
+        intro = document.getElementById("intro"),
+        startButton = document.getElementById("startButton");
+      startButton.addEventListener("click", function (ev) {
+        intro.className += " closed";
+        setTimeout(function () {
+          intro.style.display = "none";
+        }, 350);
+
+        isIntroClosed = true;
+
+        setTimeout(function () {
+          onStartedListeners.forEach(function (listener) {
+            listener();
+          });
+          onStartedListeners = null;
+        }, 100);
+      });
+
+      startButton.disabled = true;
+      startButton.innerText = "Loading...";
+
+      var numItemsLoading = 0,
+        incrementLoadingItems = function () {
+          numItemsLoading++;
+        },
+        decrementLoadingItems = function () {
+          if (--numItemsLoading == 0) {
+            document.body.className = document.body.className.replace(
+              "loading",
+              "loaded"
+            );
+            startButton.disabled = false;
+            startButton.innerText = "Begin";
+          }
+        };
+
+      StartAudioContext(Tone.context, startButton, function () {
+        debugPrint("auto started");
+      });
+    </script>
+
+    <!-- ocean -->
+    <script>
+      if (WEBGL.isWebGLAvailable() === false) {
+        document.body.appendChild(WEBGL.getWebGLErrorMessage());
+      }
+
+      var Ocean = function (renderer, scene, camera) {
+        var light;
+        var controls, water, sphere;
+
+        var updateSun;
+        var parameters = {
+          distance: 800,
+          inclination: 0.49,
+          azimuth: 0.205,
+        };
+
+        var init = function () {
+          camera = new THREE.PerspectiveCamera(
+            55,
+            window.innerWidth / window.innerHeight,
+            1,
+            20000
+          );
+          camera.position.set(30, 30, 100);
+
+          light = new THREE.DirectionalLight(0xffffff, 0.8);
+          scene.add(light);
+
+          // Water
+
+          var waterGeometry = new THREE.PlaneBufferGeometry(10000, 10000);
+
+          water = new THREE.Water(waterGeometry, {
+            textureWidth: 512,
+            textureHeight: 512,
+            waterNormals: new THREE.TextureLoader().load(
+              "textures/water.jpg",
+              function (texture) {
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+              }
+            ),
+            alpha: 1.0,
+            sunDirection: light.position.clone().normalize(),
+            sunColor: 0xffffff,
+            waterColor: 0x001e0f,
+            distortionScale: 3.7,
+            fog: scene.fog !== undefined,
+          });
+
+          water.rotation.x = -Math.PI / 2;
+
+          scene.add(water);
+
+          // Skybox
+
+          var sky = new THREE.Sky();
+          sky.scale.setScalar(10000);
+          scene.add(sky);
+
+          var uniforms = sky.material.uniforms;
+
+          uniforms.turbidity.value = 10;
+          uniforms.rayleigh.value = 2;
+          uniforms.luminance.value = 1;
+          uniforms.mieCoefficient.value = 0.005;
+          uniforms.mieDirectionalG.value = 0.8;
+
+          var cubeCamera = new THREE.CubeCamera(1, 20000, 256);
+          cubeCamera.renderTarget.texture.minFilter =
+            THREE.LinearMipMapLinearFilter;
+
+          updateSun = function () {
+            var theta = Math.PI * (parameters.inclination - 0.5);
+            var phi = 2 * Math.PI * (parameters.azimuth - 0.5);
+
+            light.position.x = parameters.distance * Math.cos(phi);
+            light.position.y =
+              parameters.distance * Math.sin(phi) * Math.sin(theta);
+            light.position.z =
+              parameters.distance * Math.sin(phi) * Math.cos(theta);
+
+            sky.material.uniforms.sunPosition.value = light.position.copy(
+              light.position
+            );
+            water.material.uniforms.sunDirection.value
+              .copy(light.position)
+              .normalize();
+
+            cubeCamera.update(renderer, scene);
+          };
+
+          updateSun();
+
+          //
+
+          var geometry = new THREE.IcosahedronBufferGeometry(20, 1);
+          var count = geometry.attributes.position.count;
+
+          var colors = [];
+          var color = new THREE.Color();
+
+          for (var i = 0; i < count; i += 3) {
+            color.setHex(Math.random() * 0xffffff);
+
+            colors.push(color.r, color.g, color.b);
+            colors.push(color.r, color.g, color.b);
+            colors.push(color.r, color.g, color.b);
+          }
+
+          geometry.addAttribute(
+            "color",
+            new THREE.Float32BufferAttribute(colors, 3)
+          );
+
+          var material = new THREE.MeshStandardMaterial({
+            vertexColors: THREE.VertexColors,
+            roughness: 0.0,
+            flatShading: true,
+            envMap: cubeCamera.renderTarget.texture,
+            side: THREE.DoubleSide,
+          });
+
+          if (DEBUG) {
+            var gui = new dat.GUI();
+
+            var folder = gui.addFolder("Sky");
+            folder
+              .add(parameters, "inclination", 0, 0.5, 0.0001)
+              .onChange(updateSun);
+            folder.add(parameters, "azimuth", 0, 1, 0.0001).onChange(updateSun);
+            folder.open();
+
+            var uniforms = water.material.uniforms;
+
+            var folder = gui.addFolder("Water");
+            folder
+              .add(uniforms.distortionScale, "value", 0, 8, 0.1)
+              .name("distortionScale");
+            folder.add(uniforms.size, "value", 0.1, 10, 0.1).name("size");
+            folder.add(uniforms.alpha, "value", 0.9, 1, 0.001).name("alpha");
+            folder.open();
+          }
+        };
+
+        var render = function () {
+          var time = performance.now() * 0.001;
+
+          water.material.uniforms.time.value += 1.0 / 60.0;
+
+          if (isIntroClosed) {
+            parameters.inclination -= 0.000036;
+            if (parameters.inclination < -0.5) {
+              parameters.inclination = 0.51;
+            }
+            updateSun();
+          }
+        };
+
+        init();
+
+        return {
+          update: render,
+        };
+      };
+    </script>
+
+    <script>
+      var ocean, boats;
+
+      var container, stats, controls;
+      var camera, scene, raycaster, renderer;
+
+      var mouse = new THREE.Vector2(-500, -500),
+        INTERSECTED;
+      var radius = 100,
+        theta = 0;
+
+      var trees = [];
+
+      init();
+      animate();
+
+      function rebuild() {
+        for (var j = 0; j < trees.length; j++) {
+          var tree = trees[j].child;
+          scene.remove(tree.group);
+        }
+        trees = Hill_rebuild(0);
+        for (var j = 0; j < trees.length; j++) {
+          var tree = trees[j].child;
+          scene.add(tree.group);
+        }
+      }
+
+      function init() {
+        container = document.getElementById("container");
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        camera = new THREE.PerspectiveCamera(
+          55,
+          window.innerWidth / window.innerHeight,
+          1,
+          20000
+        );
+        camera.position.set(150, 300, 600);
+        //
+        scene = new THREE.Scene();
+
+        ocean = Ocean(renderer, scene, camera);
+
+        raycaster = new THREE.Raycaster();
+
+        if (DEBUG) {
+          stats = new Stats();
+          container.appendChild(stats.dom);
+        }
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.maxPolarAngle = Math.PI * 0.495;
+        controls.target.set(0, 10, 0);
+        controls.minDistance = 40.0;
+        controls.maxDistance = 2000.0;
+        camera.lookAt(controls.target);
+
+        scene.background = new THREE.Color(0xf0f0f0);
+
+        var light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(1, 1, 1).normalize();
+        scene.add(light);
+
+        var geometry = new THREE.BoxBufferGeometry(20, 20, 20);
+
+        initBoats();
+
+        rebuild();
+
+        initKeyboardControl();
+
+        addOnStartedListener(function () {
+          document.addEventListener("mousemove", onDocumentMouseMove, false);
+          document.addEventListener("touchstart", onDocumentMouseMove, false);
+          document.addEventListener("touchmove", onDocumentMouseMove, false);
+          document.addEventListener("touchend", onDocumentTouchEnd, false);
+          document.addEventListener("click", onDocumentMouseClick, false);
+        });
+
+        //
+
+        window.addEventListener("resize", onWindowResize, false);
+
+        if (DEBUG) {
+          initGui();
+        }
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function onDocumentMouseMove(event) {
+        // debugPrint("onDocumentMouseMove ", event);
+
+        var clientX, clientY;
+        if (event.touches) {
+          // event.preventDefault();
+          clientX = event.touches[0].clientX;
+          clientY = event.touches[0].clientY;
+        } else {
+          event.preventDefault();
+
+          clientX = event.clientX;
+          clientY = event.clientY;
+        }
+
+        mouse.x = (clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+      }
+
+      var clickedMouse;
+      function onDocumentMouseClick(event) {
+        clickedMouse = mouse;
+      }
+
+      function onDocumentTouchEnd(event) {
+        clickedMouse = mouse;
+
+        mouse.x = -200;
+        mouse.y = -200;
+      }
+
+      //
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        ocean.update();
+
+        boats.update();
+
+        TWEEN.update();
+
+        render();
+        stats && stats.update();
+      }
+
+      function onMouseOverSlate(INTERSECTED) {
+        glowMaterial(INTERSECTED.material);
+
+        INTERSECTED.noteOn();
+
+        debugPrint("box: ", INTERSECTED.position);
+      }
+
+      function onMouseOutSlate(INTERSECTED) {
+        if (INTERSECTED) {
+          unglowMaterial(INTERSECTED.material);
+
+          INTERSECTED.noteOff();
+        }
+      }
+
+      function render() {
+        theta += 0.1;
+        controls.update();
+
+        camera.updateMatrixWorld();
+
+        // find intersections
+
+        raycaster.setFromCamera(mouse, camera);
+
+        var intersects;
+        for (var j = 0; j < trees.length; j++) {
+          var tree = trees[j].child;
+          intersects = raycaster.intersectObjects(tree.slates);
+          if (intersects.length > 0) {
+            break;
+          }
+        }
+
+        if (intersects.length > 0) {
+          if (INTERSECTED != intersects[0].object) {
+            onMouseOutSlate(INTERSECTED);
+
+            INTERSECTED = intersects[0].object;
+
+            onMouseOverSlate(INTERSECTED);
+          }
+        } else {
+          onMouseOutSlate(INTERSECTED);
+
+          INTERSECTED = null;
+        }
+
+        if (clickedMouse) {
+          raycaster.setFromCamera(clickedMouse, camera);
+        }
+        boats.checkMouse(raycaster, clickedMouse);
+        clickedMouse = false;
+
+        renderer.render(scene, camera);
+      }
+
+      function initBoats() {
+        incrementLoadingItems();
+
+        var loopFiles = {
+            pad: {
+              url: "audio/drum.wav",
+            },
+            bell: {
+              url: "audio/bell.mp3",
+            },
+            chords: {
+              url: "audio/nice.wav",
+            },
+            latin: {
+              url: "audio/beats.mp3",
+              volume: -16,
+            },
+            techno: {
+              url: "audio/techno.mp3",
+              volume: -10,
+            },
+          },
+          loops = new Loops(
+            loopFiles,
+            function () {
+              debugPrint("All samples loaded");
+
+              loops.startAll();
+
+              // must mute AFTER starting because that's when volumes are adjusted.
+              for (var name in loopFiles) {
+                loops.mute(name, name !== "pad");
+              }
+              decrementLoadingItems();
+            },
+            function (sampleName) {
+              debugPrint("Loaded sample " + sampleName);
+            }
+          );
+
+        var boatFiles = [
+          {
+            assetPath: "models/island",
+            mtlFile: "1220 Island.mtl",
+            objFile: "1220 Island.obj",
+            scale: 1.1,
+          },
+          {
+            assetPath: "models/sailboat",
+            mtlFile: "1368 Sailboat.mtl",
+            objFile: "1368 Sailboat.obj",
+            scale: 0.9,
+            y: -6,
+            rotation: 6,
+          },
+          {
+            assetPath: "models/cruise",
+            mtlFile: "1394 Cruise Liner.mtl",
+            objFile: "1394 Cruise Liner.obj",
+            scale: 1.2,
+            y: -10,
+            rotation: 6,
+          },
+          {
+            assetPath: "models/submarine",
+            mtlFile: "submarine.mtl",
+            objFile: "submarine.obj",
+            scale: 8,
+            rotation: 6,
+          },
+          {
+            assetPath: "models/blimp",
+            mtlFile: "CUPIC_BLIMP.mtl",
+            objFile: "CUPIC_BLIMP.obj",
+            scale: 0.07,
+            y: 250,
+            rotation: 4,
+          },
+        ];
+
+        boats = new Boats(
+          scene,
+          loops,
+          boatFiles,
+          decrementLoadingItems,
+          incrementLoadingItems
+        );
+      }
+
+      function initKeyboardControl() {
+        var SLATES_KEYCODE_START = 65; // 'a'
+        var SLATES_KEYCODE_END = 90; // 'z'
+
+        var makeSlateKeyboardCallback = function (tree, i) {
+          return function () {
+            var obj = tree.slates[i];
+            onMouseOverSlate(obj);
+            setTimeout(function () {
+              onMouseOutSlate(obj);
+            }, 400);
+          };
+        };
+        var keysPerTree = Math.floor(
+          (SLATES_KEYCODE_END - SLATES_KEYCODE_START) / trees.length
+        );
+
+        for (var j = 0; j < trees.length; j++) {
+          var tree = trees[j].child;
+          for (var i = 0; i < tree.slates.length && i < keysPerTree; i++) {
+            var keycode = SLATES_KEYCODE_START + j * keysPerTree + i;
+            a11y.addKeyboardShortcut(
+              keycode,
+              makeSlateKeyboardCallback(tree, i)
+            );
+          }
+        }
+      }
+
+      function initGui() {
+        var params = {
+          MIN_BOX_SIZE: MIN_BOX_SIZE,
+          MAX_BOX_SIZE: MAX_BOX_SIZE,
+
+          FRACTAL_BOX_MARGIN: FRACTAL_BOX_MARGIN,
+
+          OFFSET_SIZE: OFFSET_SIZE,
+          BRANCH_LENGTH: BRANCH_LENGTH,
+
+          TWEET_TREE_Y: TWEET_TREE_Y,
+
+          MODEL_ROTATION: MODEL_ROTATION,
+          cameraX: camera.position.x,
+          cameraY: camera.position.y,
+          cameraZ: camera.position.z,
+        };
+
+        var gui = new dat.GUI();
+
+        Object.keys(params).forEach(function (key, el) {
+          var curValue = window[key];
+          if (typeof curValue != "undefined") {
+            if (curValue == 0) curValue = 1;
+
+            gui
+              .add(
+                params,
+                key,
+                curValue - curValue * 4,
+                curValue + curValue * 4
+              )
+              .step(curValue / 16)
+              .name(key)
+              .onChange(function (value) {
+                window[key] = value;
+                rebuild();
+                render();
+              });
+          } else {
+            curValue = params[key];
+            gui
+              .add(
+                params,
+                key,
+                curValue - curValue * 4,
+                curValue + curValue * 4
+              )
+              .step(1)
+              .name(key)
+              .onChange(function (value) {
+                if (key.indexOf("camera") == 0) {
+                  camera.position.set(
+                    params.cameraX,
+                    params.cameraY,
+                    params.cameraZ
+                  );
+                  camera.lookAt(scene.position);
+
+                  render();
+                }
+              });
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
